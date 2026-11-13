@@ -2,6 +2,8 @@
 
 Site de révision pour le concours de recrutement de professeurs des écoles (CRPE), version externe bac+3.
 
+En ligne : https://julescournut.github.io/revision-crpe/ (GitHub Pages, publié depuis `main` à chaque push).
+
 ## Lancer en local
 
 ```bash
