@@ -280,3 +280,14 @@ kbd { font-family: inherit; font-size: .85em; padding: 1px 6px; border-radius: 6
   .course-layout { grid-template-columns: 1fr; }
   .course-nav { position: static; max-height: none; }
 }
+
+/* Niveaux */
+.level-picker { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+.level-group .tabs { margin: 4px 0 0; }
+.level-card .callout { margin-top: 12px; }
+.domain { border-top: 1px solid var(--border); padding: 10px 0; }
+.domain summary { cursor: pointer; font-weight: 800; }
+.attendus { list-style: none; padding: 0; margin: 10px 0 0; }
+.attendus li { padding: 10px 12px; background: var(--surface-2); border-radius: 10px; margin-bottom: 8px; }
+.attendus li strong { display: block; font-weight: 700; }
+.attendus li span { display: block; font-size: .92rem; margin-top: 2px; }

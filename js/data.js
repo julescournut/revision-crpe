@@ -1,4 +1,21 @@
 const COURS = {}; // rempli par les fichiers js/cours/*.js
+const ATTENDUS = []; // attendus par niveau, remplis par js/niveaux/*.js
+const ESSENTIELS = []; // l’essentiel par niveau et par matière, rempli par js/niveaux/*.js
+const LEVELS = [
+  { id: 'PS', label: 'Petite section', cycle: 1 },
+  { id: 'MS', label: 'Moyenne section', cycle: 1 },
+  { id: 'GS', label: 'Grande section', cycle: 1 },
+  { id: 'CP', label: 'CP', cycle: 2 },
+  { id: 'CE1', label: 'CE1', cycle: 2 },
+  { id: 'CE2', label: 'CE2', cycle: 2 },
+  { id: 'CM1', label: 'CM1', cycle: 3 },
+  { id: 'CM2', label: 'CM2', cycle: 3 },
+];
+const LEVEL_SOURCES = {
+  1: { label: 'Programmes du cycle 1 (BO n° 41 du 31 octobre 2024)', urls: [['Langage oral et écrit', 'https://www.education.gouv.fr/sites/default/files/ensel135_annexe1.pdf'], ['Premiers outils mathématiques', 'https://www.education.gouv.fr/sites/default/files/ensel135_annexe2.pdf']] },
+  2: { label: 'Programmes du cycle 2 (BO n° 41 du 31 octobre 2024)', urls: [['Français', 'https://www.education.gouv.fr/sites/default/files/ensel135_annexe3.pdf'], ['Mathématiques', 'https://www.education.gouv.fr/sites/default/files/ensel135_annexe4.pdf']] },
+  3: { label: 'Programmes du cycle 3 (BO n° 16 du 17 avril 2025)', urls: [['Français', 'https://www.education.gouv.fr/sites/default/files/ensel620_annexe1.pdf'], ['Arrêté et programme de mathématiques', 'https://education.gouv.fr/bo/2025/Hebdo16/MENE2504620A']] },
+};
 
 /* Contenus de révision. Chaque question : s = matière, q = énoncé, c = choix, a = index de la bonne réponse, e = explication. */
 

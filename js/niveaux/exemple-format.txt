@@ -1,0 +1,20 @@
+Contrat de données (exemple complet, réel, tiré du programme de maths du cycle 2) :
+
+ESSENTIELS.push({
+  niveau: 'CP',
+  matiere: 'maths',
+  items: [
+    'Nombres jusqu’à cent : suite orale et écrite, unités et dizaines.',
+    'Écriture en lettres des nombres jusqu’à cinquante à la fin de l’année.',
+  ],
+});
+
+ATTENDUS.push({
+  niveau: 'CP',
+  matiere: 'maths',
+  domaine: 'Nombres et numération',
+  items: [
+    { o: 'Connaître la suite écrite et la suite orale des nombres jusqu’à cent.', ex: 'L’élève sait compter, à l’oral et à l’écrit, de un en un, de deux en deux et de dix en dix en partant de n’importe quel nombre, et à rebours de un en un.' },
+    { o: 'Connaître la valeur des chiffres en fonction de leur position (unités, dizaines).', ex: 'L’élève explique, en s’appuyant sur la numération, pourquoi 23 n’est pas le même nombre que 32.' },
+  ],
+});

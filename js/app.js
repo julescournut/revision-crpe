@@ -188,6 +188,8 @@ const routes = {
   calcul: renderCalc,
   vraifaux: renderTrueFalse,
   cours: renderCourses,
+  niveaux: renderLevels,
+  'quel-niveau': renderLevelQuiz,
   annales: renderAnnales,
   methode: renderMethod,
 };
@@ -198,7 +200,7 @@ function router() {
   (routes[route] || renderHome)(param, sub);
   document.querySelectorAll('#nav a').forEach((link) => {
     const target = link.dataset.route;
-    const section = ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux'].includes(route) ? 'jeux' : route;
+    const section = ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau'].includes(route) ? 'jeux' : route;
     link.classList.toggle('active', target === (section || ''));
   });
   window.scrollTo(0, 0);
@@ -280,6 +282,10 @@ function renderGames() {
       <a class="card link-card" href="#/calcul">
         <span class="emoji">🧮</span><h3>Calcul mental · 60 s</h3>
         <p class="muted">Un maximum de calculs en une minute. Record actuel : ${state.best.calc}.</p>
+      </a>
+      <a class="card link-card" href="#/quel-niveau">
+        <span class="emoji">🎲</span><h3>À quel niveau ?</h3>
+        <p class="muted">Un objectif du programme s’affiche : retrouve la classe, du CP au CM2. Parfait pour préparer l’oral 1.</p>
       </a>
       <a class="card link-card" href="#/vraifaux">
         <span class="emoji">⚡</span><h3>Vrai ou faux éclair · 45 s</h3>
@@ -771,6 +777,149 @@ function renderCourses(subject, chapterId) {
     location.hash = next ? `#/cours/${subject}/${next.id}` : `#/cours/${subject}/${chapter.id}`;
     if (!next) router();
   });
+}
+
+/* ================= Niveaux ================= */
+const LEVEL_MATIERES = [['francais', 'Français'], ['maths', 'Mathématiques']];
+
+function attendusFor(levelId, matiere) {
+  const level = LEVELS.find((l) => l.id === levelId);
+  if (level && level.cycle === 1) {
+    // Le programme de maternelle raisonne par âge : correspondance indicative avec les sections.
+    const band = { PS: 'à aborder avant 4 ans', MS: 'à partir de 4 ans', GS: 'à partir de 5 ans' }[levelId];
+    const own = ATTENDUS.filter((a) => a.niveau === 'MAT' && a.matiere === matiere && a.domaine.endsWith(`(${band})`))
+      .map((a) => ({ ...a, domaine: a.domaine.replace(/\s*\([^)]*\)\s*$/, '') }));
+    return { own, shared: [], band };
+  }
+  return { own: ATTENDUS.filter((a) => a.niveau === levelId && a.matiere === matiere), shared: [] };
+}
+
+function renderLevels(levelId) {
+  const level = LEVELS.find((l) => l.id === levelId) || LEVELS.find((l) => l.id === 'CP');
+  const source = LEVEL_SOURCES[level.cycle];
+  const cycles = [[1, 'Maternelle (cycle 1)'], [2, 'Cycle 2'], [3, 'Cycle 3']];
+  const domainBlock = (group, open) => `
+    <details class="domain" ${open ? 'open' : ''}>
+      <summary>${escapeHtml(group.domaine)} <span class="muted">· ${group.items.length}</span></summary>
+      <ul class="attendus">
+        ${group.items.map((item) => `<li><strong>${escapeHtml(item.o)}</strong>${item.ex ? `<span class="muted">Exemple de réussite : ${escapeHtml(item.ex)}</span>` : ''}</li>`).join('')}
+      </ul>
+    </details>`;
+
+  app.innerHTML = `
+    <h1>Ce que l’élève doit savoir, niveau par niveau</h1>
+    <p class="muted">Objectifs d’apprentissage et exemples de réussite tirés des programmes officiels de français et de mathématiques. Indispensable pour l’oral 1 : situer une notion dans la scolarité et choisir un niveau cohérent.</p>
+    <div class="level-picker">
+      ${cycles.map(([cycle, label]) => `
+        <div class="level-group"><small class="muted">${label}</small>
+          <div class="tabs">${LEVELS.filter((l) => l.cycle === cycle).map((l) => `<a class="tab ${l.id === level.id ? 'active' : ''}" href="#/niveaux/${l.id}">${l.id}</a>`).join('')}</div>
+        </div>`).join('')}
+    </div>
+    <div class="btn-row" style="margin:0 0 20px"><a class="btn ghost" href="#/quel-niveau">🎲 Jouer à « À quel niveau ? »</a></div>
+    <h2>${escapeHtml(level.label)}</h2>
+    <div class="grid grid-2" style="align-items:start">
+      ${LEVEL_MATIERES.map(([matiere, label]) => {
+        const essentials = ESSENTIELS.filter((e) => (e.niveau === level.id || (level.cycle === 1 && e.niveau === 'MAT')) && e.matiere === matiere).flatMap((e) => e.items);
+        const { own, shared, band } = attendusFor(level.id, matiere);
+        const subject = SUBJECTS[matiere];
+        return `
+        <section class="card level-card" ${subjectStyle(matiere)}>
+          <span class="tag">${subject.emoji} ${label}</span>
+          ${band ? `<p class="muted" style="margin:10px 0 0;font-size:.92rem">Le programme de maternelle fixe les objectifs par âge : ici, ceux « ${escapeHtml(band)} » (correspondance indicative avec la ${escapeHtml(level.label.toLowerCase())}).</p>` : ''}
+          ${essentials.length ? `<div class="callout key"><strong>📌 L’essentiel ${level.cycle === 1 ? 'en maternelle' : `en ${escapeHtml(level.id)}`}</strong><ul>${essentials.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>` : ''}
+          ${own.map((group, i) => domainBlock(group, i === 0)).join('')}
+          ${shared.length ? `<h3 style="margin-top:20px">Sur toute la maternelle</h3>${shared.map((group) => domainBlock(group, false)).join('')}` : ''}
+          ${!own.length && !shared.length ? '<p class="muted">Contenu en préparation.</p>' : ''}
+        </section>`;
+      }).join('')}
+    </div>
+    <p class="muted" style="margin-top:20px;font-size:.9rem">Source : ${escapeHtml(source.label)} : ${source.urls.map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)} ↗</a>`).join(' · ')}.
+    Les autres domaines (sciences, histoire-géographie, EMC, arts, EPS, langues) sont définis par cycle et non par année.</p>`;
+}
+
+/* Jeu « À quel niveau ? » : retrouver la classe d’un objectif d’apprentissage. */
+function renderLevelQuiz() {
+  const order = LEVELS.filter((l) => l.cycle > 1).map((l) => l.id); // la maternelle raisonne par âge, pas par classe
+  const pool = [];
+  ATTENDUS.filter((a) => order.includes(a.niveau)).forEach((group) => group.items.forEach((item) => pool.push({ ...item, niveau: group.niveau, matiere: group.matiere, domaine: group.domaine })));
+  if (pool.length < 4) {
+    app.innerHTML = '<div class="play card result"><div class="big">⏳</div><h2>Contenu en préparation</h2><a class="btn" href="#/jeux">Autres jeux</a></div>';
+    return;
+  }
+  const rounds = shuffle(pool).slice(0, 10).map((item) => {
+    const index = order.indexOf(item.niveau);
+    const start = Math.max(0, Math.min(order.length - 4, index - 1 - Math.floor(Math.random() * 2)));
+    return { ...item, choices: order.slice(start, start + 4) };
+  });
+  let round = 0;
+  let score = 0;
+  let answered = false;
+
+  function show() {
+    answered = false;
+    const r = rounds[round];
+    app.innerHTML = `
+      <div class="play">
+        <div class="play-top">
+          <a class="icon-btn" href="#/jeux" title="Quitter">✕</a>
+          <div class="progress"><span style="width:${(round / rounds.length) * 100}%"></span></div>
+          <div class="combo">${score} ✅</div>
+        </div>
+        <span class="tag" ${subjectStyle(r.matiere)}>${SUBJECTS[r.matiere].label} · ${escapeHtml(r.domaine)}</span>
+        <p class="muted" style="margin:14px 0 0">À quel niveau cet objectif est-il fixé par le programme ?</p>
+        <div class="question">${escapeHtml(r.o)}</div>
+        <div class="choices level-choices">
+          ${r.choices.map((c, i) => `<button class="choice" data-level="${c}"><span class="key">${i + 1}</span>${escapeHtml(LEVELS.find((l) => l.id === c).label)}</button>`).join('')}
+        </div>
+        <div id="after"></div>
+      </div>`;
+    app.querySelectorAll('.choice').forEach((b) => b.addEventListener('click', () => pick(b.dataset.level)));
+  }
+
+  function pick(levelId) {
+    if (answered) return;
+    answered = true;
+    const r = rounds[round];
+    const ok = levelId === r.niveau;
+    const buttons = [...app.querySelectorAll('.choice')];
+    buttons.forEach((b) => { b.disabled = true; if (b.dataset.level === r.niveau) { b.classList.add('correct'); if (ok) b.classList.add('pop'); } });
+    if (!ok) buttons.find((b) => b.dataset.level === levelId).classList.add('wrong', 'shake');
+    if (ok) { score++; addXp(10); }
+    $('#after').innerHTML = `
+      <div class="feedback ${ok ? 'ok' : 'ko'}">
+        <strong>${ok ? 'Bien vu !' : `C’était en ${escapeHtml(r.niveau)}.`}</strong>
+        ${r.ex ? `Exemple de réussite : ${escapeHtml(r.ex)}` : ''}
+      </div>
+      <div class="btn-row"><button class="btn ${ok ? 'success' : ''}" id="next">${round + 1 < rounds.length ? 'Continuer' : 'Voir le résultat'} <kbd>Entrée</kbd></button>
+      <a class="btn ghost" href="#/niveaux/${r.niveau}">Voir le niveau ${escapeHtml(r.niveau)}</a></div>`;
+    $('#next').addEventListener('click', next);
+    $('#next').focus();
+  }
+
+  function next() {
+    round++;
+    if (round < rounds.length) { show(); return; }
+    unlock('first');
+    save();
+    app.innerHTML = `
+      <div class="play card result">
+        <div class="big">${score >= 8 ? '🏆' : score >= 5 ? '🎉' : '🌱'}</div>
+        <h2>À quel niveau ? ${score} / ${rounds.length}</h2>
+        <p class="muted">Pour progresser, parcours les niveaux et compare ce qui change d’une année à l’autre.</p>
+        <span class="pill xp">⭐ +${score * 10} XP</span>
+        <div class="btn-row" style="justify-content:center"><a class="btn" href="#/quel-niveau" id="again">Rejouer</a><a class="btn ghost" href="#/niveaux">Voir les niveaux</a></div>
+      </div>`;
+    $('#again').addEventListener('click', (event) => { event.preventDefault(); renderLevelQuiz(); });
+  }
+
+  const onKey = (event) => {
+    const r = rounds[round];
+    if (!answered && r && /^[1-4]$/.test(event.key)) pick(r.choices[Number(event.key) - 1]);
+    else if (answered && event.key === 'Enter' && $('#next')) { event.preventDefault(); next(); }
+  };
+  document.addEventListener('keydown', onKey);
+  cleanup = () => document.removeEventListener('keydown', onKey);
+  show();
 }
 
 /* ================= Annales ================= */
