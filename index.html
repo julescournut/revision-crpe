@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Révision CRPE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="#/" class="brand"><span class="brand-logo">✏️</span> Révision CRPE</a>
+    <nav class="nav" id="nav">
+      <a href="#/" data-route="">Accueil</a>
+      <a href="#/jeux" data-route="jeux">Jeux</a>
+      <a href="#/cours" data-route="cours">Cours</a>
+      <a href="#/annales" data-route="annales">Annales</a>
+      <a href="#/methode" data-route="methode">Méthode</a>
+    </nav>
+    <div class="stats" id="stats" aria-label="Progression"></div>
+  </header>
+
+  <main id="app" class="container"></main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script src="js/data.js"></script>
+  <script src="js/cours/francais.js"></script>
+  <script src="js/cours/maths.js"></script>
+  <script src="js/cours/histoire.js"></script>
+  <script src="js/cours/sciences.js"></script>
+  <script src="js/cours/systeme.js"></script>
+  <script src="js/cours/eps.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
