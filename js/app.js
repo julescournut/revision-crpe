@@ -29,6 +29,15 @@ const addDays = (date, days) => {
 };
 
 QUESTIONS.forEach((q) => { q.id = hash(q.q); });
+// Questions des quiz de chapitre : elles alimentent aussi les quiz par matière, le mélange et « Mes erreurs ».
+const CHAPTER_QUESTIONS = [];
+Object.keys(COURS).forEach((subject) => COURS[subject].forEach((chapter) => (chapter.quiz || []).forEach((q) => {
+  CHAPTER_QUESTIONS.push({ ...q, s: subject, chapter: chapter.id, id: hash(q.q) });
+})));
+const ALL_QUESTIONS = QUESTIONS.concat(CHAPTER_QUESTIONS);
+const TESTS_TO_UNDERSTAND = 3; // tests réussis pour débloquer « J’ai compris »
+const CHAPTER_TEST_SIZE = 5;
+const CHAPTER_TEST_PASS = 4; // bonnes réponses minimum sur 5
 FLASHCARDS.forEach((card) => { card.id = hash(card.f); });
 
 /* ================= État persistant ================= */
@@ -41,6 +50,7 @@ const defaultState = () => ({
   badges: [],
   subjects: {},
   quizSubjectsDone: [],
+  chapterTests: {},
   wrong: [],
   cards: {},
   cardsReviewed: 0,
@@ -61,6 +71,185 @@ function load() {
 
 function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) { /* stockage indisponible : on continue sans sauvegarde */ }
+  scheduleSync();
+}
+
+/* ================= Synchronisation entre appareils (Gist GitHub privé) ================= */
+const SYNC_KEY = 'revision-crpe-sync';
+const SYNC_FILE = 'revision-crpe-progress.json';
+const SYNC_DESCRIPTION = 'Révision CRPE : progression (synchronisation)';
+let syncTimer = null;
+let syncRunning = false;
+const syncStatus = { state: 'off', message: '' };
+
+function syncConfig() {
+  try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || null; } catch (error) { return null; }
+}
+function setSyncConfig(config) {
+  try { if (config) localStorage.setItem(SYNC_KEY, JSON.stringify(config)); else localStorage.removeItem(SYNC_KEY); } catch (error) { /* ignoré */ }
+}
+
+/* Fusion de deux progressions : on garde le meilleur de chaque appareil, rien n’est perdu. */
+function mergeStates(a, b) {
+  const base = defaultState();
+  a = { ...base, ...a };
+  b = { ...base, ...b };
+  const union = (x, y) => [...new Set([...(x || []), ...(y || [])])];
+  const recent = (a.lastActiveDay || '') >= (b.lastActiveDay || '') ? a : b;
+  const merged = { ...base };
+  merged.xp = Math.max(a.xp, b.xp);
+  merged.lastActiveDay = recent.lastActiveDay;
+  merged.streak = a.lastActiveDay === b.lastActiveDay ? Math.max(a.streak, b.streak) : recent.streak;
+  merged.daily = a.daily.day === b.daily.day ? { day: a.daily.day, xp: Math.max(a.daily.xp, b.daily.xp) } : (a.daily.day > b.daily.day ? a.daily : b.daily);
+  merged.badges = union(a.badges, b.badges);
+  merged.quizSubjectsDone = union(a.quizSubjectsDone, b.quizSubjectsDone);
+  merged.chaptersRead = union(a.chaptersRead, b.chaptersRead);
+  merged.wrong = union(a.wrong, b.wrong);
+  merged.cardsReviewed = Math.max(a.cardsReviewed, b.cardsReviewed);
+  merged.best = { calc: Math.max(a.best.calc || 0, b.best.calc || 0), tf: Math.max(a.best.tf || 0, b.best.tf || 0) };
+  merged.subjects = {};
+  union(Object.keys(a.subjects), Object.keys(b.subjects)).forEach((k) => {
+    const x = a.subjects[k] || { answered: 0, correct: 0 };
+    const y = b.subjects[k] || { answered: 0, correct: 0 };
+    merged.subjects[k] = x.answered >= y.answered ? x : y;
+  });
+  merged.cards = {};
+  union(Object.keys(a.cards), Object.keys(b.cards)).forEach((k) => {
+    const x = a.cards[k];
+    const y = b.cards[k];
+    merged.cards[k] = !x ? y : !y ? x : (x.box > y.box || (x.box === y.box && x.due >= y.due) ? x : y);
+  });
+  merged.chapterTests = {};
+  union(Object.keys(a.chapterTests), Object.keys(b.chapterTests)).forEach((k) => {
+    const x = a.chapterTests[k] || { passed: 0, tries: 0 };
+    const y = b.chapterTests[k] || { passed: 0, tries: 0 };
+    merged.chapterTests[k] = { passed: Math.max(x.passed, y.passed), tries: Math.max(x.tries, y.tries) };
+  });
+  return merged;
+}
+
+async function githubApi(path, token, options = {}) {
+  const response = await fetch(`https://api.github.com${path}`, {
+    ...options,
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'X-GitHub-Api-Version': '2022-11-28', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  if (!response.ok) {
+    const error = new Error(response.status === 401 ? 'Jeton refusé (invalide ou expiré).' : response.status === 403 || response.status === 404 ? 'Accès refusé : le jeton doit avoir la permission « Gists » en lecture et écriture.' : `Erreur GitHub ${response.status}.`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.status === 204 ? null : response.json();
+}
+
+async function findOrCreateGist(token) {
+  for (let page = 1; page <= 5; page++) {
+    const gists = await githubApi(`/gists?per_page=100&page=${page}`, token);
+    const found = gists.find((g) => g.files && g.files[SYNC_FILE]);
+    if (found) return found.id;
+    if (gists.length < 100) break;
+  }
+  const created = await githubApi('/gists', token, { method: 'POST', body: JSON.stringify({ description: SYNC_DESCRIPTION, public: false, files: { [SYNC_FILE]: { content: JSON.stringify(state) } } }) });
+  return created.id;
+}
+
+async function syncNow({ silent = false, overwrite = false } = {}) {
+  const config = syncConfig();
+  if (!config || !config.token || syncRunning) return;
+  syncRunning = true;
+  syncStatus.state = 'running';
+  renderSyncPill();
+  try {
+    if (!config.gistId) { config.gistId = await findOrCreateGist(config.token); setSyncConfig(config); }
+    const gist = await githubApi(`/gists/${config.gistId}`, config.token);
+    const file = gist.files && gist.files[SYNC_FILE];
+    let remote = null;
+    if (file) remote = JSON.parse(file.truncated ? await (await fetch(file.raw_url)).text() : file.content);
+    const before = JSON.stringify(state);
+    if (remote && !overwrite) state = mergeStates(state, remote);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) { /* ignoré */ }
+    if (!remote || JSON.stringify(remote) !== JSON.stringify(state)) {
+      await githubApi(`/gists/${config.gistId}`, config.token, { method: 'PATCH', body: JSON.stringify({ files: { [SYNC_FILE]: { content: JSON.stringify(state) } } }) });
+    }
+    config.lastSync = new Date().toISOString();
+    setSyncConfig(config);
+    syncStatus.state = 'ok';
+    syncStatus.message = '';
+    if (JSON.stringify(state) !== before && !silent) router();
+  } catch (error) {
+    if (error.status === 404 && config.gistId) { delete config.gistId; setSyncConfig(config); }
+    syncStatus.state = 'error';
+    syncStatus.message = error.message || 'Synchronisation impossible (réseau ?).';
+  } finally {
+    syncRunning = false;
+    renderSyncPill();
+    if (location.hash.startsWith('#/sync')) renderSync();
+  }
+}
+
+function scheduleSync() {
+  const config = syncConfig();
+  if (!config || !config.token) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow({ silent: true }), 8000);
+}
+
+function renderSyncPill() {
+  const pill = $('#sync-pill');
+  if (!pill) return;
+  const config = syncConfig();
+  const icon = !config ? '☁️' : syncStatus.state === 'running' ? '🔄' : syncStatus.state === 'error' ? '⚠️' : '✅';
+  pill.textContent = icon;
+  pill.title = !config ? 'Synchroniser entre appareils' : syncStatus.state === 'error' ? syncStatus.message : `Synchronisé${config.lastSync ? ` (${new Date(config.lastSync).toLocaleString('fr-FR')})` : ''}`;
+}
+
+function renderSync() {
+  const config = syncConfig();
+  const last = config && config.lastSync ? new Date(config.lastSync).toLocaleString('fr-FR') : null;
+  app.innerHTML = `
+    <div class="play">
+      <h1>☁️ Synchroniser entre appareils</h1>
+      <p class="muted">Ta progression (XP, niveau, badges, cartes, chapitres validés) est enregistrée dans un Gist privé de ton compte GitHub. Chaque appareil connecté la récupère et la complète automatiquement : on garde toujours le meilleur des deux.</p>
+      ${config ? `
+        <div class="card">
+          <h2>${syncStatus.state === 'error' ? '⚠️ Problème de synchronisation' : '✅ Synchronisation active'}</h2>
+          ${syncStatus.state === 'error' ? `<p class="feedback ko">${escapeHtml(syncStatus.message)}</p>` : ''}
+          <p class="muted">${last ? `Dernière synchronisation : ${escapeHtml(last)}.` : 'Pas encore synchronisé.'} Elle se fait à l’ouverture du site et quelques secondes après chaque progression.</p>
+          <div class="btn-row">
+            <button class="btn" id="sync-now">🔄 Synchroniser maintenant</button>
+            <button class="btn ghost" id="sync-off">Déconnecter cet appareil</button>
+          </div>
+        </div>` : `
+        <div class="card">
+          <h2>1. Crée un jeton GitHub (une seule fois)</h2>
+          <ol>
+            <li>Ouvre <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Settings → Developer settings → Fine-grained tokens ↗</a>.</li>
+            <li>Nom : « Révision CRPE », expiration de ton choix.</li>
+            <li>Dans <strong>Account permissions</strong>, règle <strong>Gists</strong> sur <strong>Read and write</strong>. Ne donne aucune autre permission.</li>
+            <li>Génère le jeton et copie-le (il commence par <code>github_pat_</code>). Garde-le dans ton gestionnaire de mots de passe pour tes autres appareils.</li>
+          </ol>
+          <h2>2. Colle-le ici, sur chaque appareil</h2>
+          <form id="sync-form" class="sync-form" autocomplete="off">
+            <input id="sync-token" type="password" placeholder="github_pat_…" aria-label="Jeton GitHub" spellcheck="false">
+            <button class="btn" type="submit">Connecter</button>
+          </form>
+          <p class="muted" style="font-size:.9rem;margin-top:12px">Le jeton reste dans ce navigateur et n’est envoyé qu’à api.github.com. Il ne donne accès qu’à tes Gists. Tu peux le révoquer à tout moment sur GitHub.</p>
+        </div>`}
+    </div>`;
+  const form = $('#sync-form');
+  if (form) form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const token = $('#sync-token').value.trim();
+    if (!token) return;
+    setSyncConfig({ token });
+    await syncNow();
+    if (syncStatus.state === 'error') { setSyncConfig(null); toast(`⚠️ ${syncStatus.message}`); renderSync(); renderSyncPill(); return; }
+    toast('✅ Appareil connecté : progression synchronisée');
+    renderSync();
+  });
+  const now = $('#sync-now');
+  if (now) now.addEventListener('click', () => syncNow());
+  const off = $('#sync-off');
+  if (off) off.addEventListener('click', () => { setSyncConfig(null); syncStatus.state = 'off'; renderSyncPill(); renderSync(); toast('Appareil déconnecté (la progression locale est conservée)'); });
 }
 
 function refreshDay() {
@@ -118,7 +307,9 @@ function renderStats() {
   $('#stats').innerHTML = `
     <span class="pill streak" title="Jours d’affilée">🔥 ${currentStreak()}</span>
     <span class="pill xp" title="Points d’expérience">⭐ ${state.xp}</span>
-    <span class="pill level" title="Niveau">Niv. ${level}</span>`;
+    <span class="pill level" title="Niveau">Niv. ${level}</span>
+    <a class="pill sync" id="sync-pill" href="#/sync"></a>`;
+  renderSyncPill();
 }
 
 let toastTimer;
@@ -183,6 +374,7 @@ const routes = {
   '': renderHome,
   jeux: renderGames,
   quiz: renderQuiz,
+  test: renderQuiz,
   erreurs: () => renderQuiz('erreurs'),
   cartes: renderCards,
   calcul: renderCalc,
@@ -192,6 +384,7 @@ const routes = {
   'quel-niveau': renderLevelQuiz,
   annales: renderAnnales,
   methode: renderMethod,
+  sync: renderSync,
 };
 
 function router() {
@@ -200,7 +393,7 @@ function router() {
   (routes[route] || renderHome)(param, sub);
   document.querySelectorAll('#nav a').forEach((link) => {
     const target = link.dataset.route;
-    const section = ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau'].includes(route) ? 'jeux' : route;
+    const section = route === 'test' ? 'cours' : ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau'].includes(route) ? 'jeux' : route;
     link.classList.toggle('active', target === (section || ''));
   });
   window.scrollTo(0, 0);
@@ -247,7 +440,7 @@ function renderHome() {
           <a class="card link-card subject-card" ${subjectStyle(key)} href="#/quiz/${key}">
             <span class="emoji">${SUBJECTS[key].emoji}</span>
             <h3>${SUBJECTS[key].label}</h3>
-            <span class="muted">${SUBJECTS[key].epreuve} · ${QUESTIONS.filter((q) => q.s === key).length} questions</span>
+            <span class="muted">${SUBJECTS[key].epreuve} · ${ALL_QUESTIONS.filter((q) => q.s === key).length} questions</span>
             <div class="bar"><span style="width:${mastery(key)}%"></span></div>
             <small class="muted">Réussite : ${mastery(key)} %</small>
           </a>`).join('')}
@@ -308,22 +501,25 @@ function renderGames() {
 }
 
 /* ================= Quiz ================= */
-function renderQuiz(subject = 'melange') {
+function renderQuiz(subject = 'melange', chapterId) {
   let pool;
-  if (subject === 'erreurs') pool = QUESTIONS.filter((q) => state.wrong.includes(q.id));
-  else if (SUBJECTS[subject]) pool = QUESTIONS.filter((q) => q.s === subject);
-  else { subject = 'melange'; pool = QUESTIONS; }
+  const chapter = SUBJECTS[subject] && chapterId ? (COURS[subject] || []).find((c) => c.id === chapterId) : null;
+  const chapterKey = chapter ? `${subject}/${chapter.id}` : null;
+  if (chapter) pool = CHAPTER_QUESTIONS.filter((q) => q.s === subject && q.chapter === chapter.id);
+  else if (subject === 'erreurs') pool = ALL_QUESTIONS.filter((q) => state.wrong.includes(q.id));
+  else if (SUBJECTS[subject]) pool = ALL_QUESTIONS.filter((q) => q.s === subject);
+  else { subject = 'melange'; pool = ALL_QUESTIONS; }
 
   if (!pool.length) {
     app.innerHTML = `<div class="play card result"><div class="big">🎉</div><h2>Aucune erreur à revoir</h2><p class="muted">Joue un quiz pour alimenter cette liste.</p><a class="btn" href="#/quiz/melange">Lancer un quiz</a></div>`;
     return;
   }
 
-  const questions = shuffle(pool).slice(0, 10).map((q) => {
+  const questions = shuffle(pool).slice(0, chapter ? CHAPTER_TEST_SIZE : 10).map((q) => {
     const order = shuffle(q.c.map((_, i) => i));
     return { ...q, choices: order.map((i) => q.c[i]), answer: order.indexOf(q.a) };
   });
-  const title = subject === 'erreurs' ? 'Mes erreurs' : subject === 'melange' ? 'Quiz mélangé' : SUBJECTS[subject].label;
+  const title = chapter ? `Test : ${chapter.title}` : subject === 'erreurs' ? 'Mes erreurs' : subject === 'melange' ? 'Quiz mélangé' : SUBJECTS[subject].label;
   let index = 0;
   let score = 0;
   let combo = 0;
@@ -338,7 +534,7 @@ function renderQuiz(subject = 'melange') {
     app.innerHTML = `
       <div class="play">
         <div class="play-top">
-          <a class="icon-btn" href="#/jeux" title="Quitter">✕</a>
+          <a class="icon-btn" href="${chapter ? `#/cours/${subject}/${chapter.id}` : '#/jeux'}" title="Quitter">✕</a>
           <div class="progress"><span style="width:${(index / questions.length) * 100}%"></span></div>
           <div class="combo">${combo >= 2 ? `🔥 x${combo}` : ''}</div>
         </div>
@@ -402,7 +598,19 @@ function renderQuiz(subject = 'melange') {
   function finish() {
     unlock('first');
     if (score === questions.length && questions.length >= 10) { unlock('perfect'); confetti(); }
-    if (SUBJECTS[subject] && !state.quizSubjectsDone.includes(subject)) {
+    let testLine = '';
+    if (chapter) {
+      const tests = state.chapterTests[chapterKey] || (state.chapterTests[chapterKey] = { passed: 0, tries: 0 });
+      tests.tries++;
+      const passed = score >= CHAPTER_TEST_PASS;
+      if (passed) tests.passed++;
+      const left = Math.max(0, TESTS_TO_UNDERSTAND - tests.passed);
+      testLine = passed
+        ? (left ? `Test réussi ! Encore ${left} test${left > 1 ? 's' : ''} réussi${left > 1 ? 's' : ''} pour débloquer « J’ai compris ».` : '🔓 « J’ai compris » est débloqué pour ce chapitre !')
+        : `Il faut au moins ${CHAPTER_TEST_PASS} bonnes réponses sur ${CHAPTER_TEST_SIZE}. Relis le chapitre et retente ta chance.`;
+      if (passed && !left && tests.passed === TESTS_TO_UNDERSTAND) confetti();
+    }
+    if (!chapter && SUBJECTS[subject] && !state.quizSubjectsDone.includes(subject)) {
       state.quizSubjectsDone.push(subject);
       if (Object.keys(SUBJECTS).every((key) => state.quizSubjectsDone.includes(key))) unlock('allsubjects');
     }
@@ -415,19 +623,21 @@ function renderQuiz(subject = 'melange') {
         <div class="big">${emoji}</div>
         <h2>${title} : ${score} / ${questions.length}</h2>
         <p class="muted">${message}</p>
+        ${testLine ? `<p class="test-line"><strong>${testLine}</strong></p>` : ''}
         <div class="result-stats">
           <span class="pill xp">⭐ +${earned} XP</span>
           <span class="pill streak">🔥 Meilleur combo : ${maxCombo}</span>
         </div>
         <div class="btn-row" style="justify-content:center">
-          <a class="btn" href="#/quiz/${subject}" id="again">Rejouer</a>
+          <a class="btn" href="#/quiz/${subject}" id="again">${chapter ? 'Nouveau test' : 'Rejouer'}</a>
+          ${chapter ? `<a class="btn ghost" href="#/cours/${subject}/${chapter.id}">Retour au chapitre</a>` : ''}
           ${missed.length ? '<a class="btn ghost" href="#/erreurs">Revoir mes erreurs</a>' : ''}
           <a class="btn ghost" href="#/jeux">Autres jeux</a>
         </div>
         ${missed.length ? `<div class="review-list"><h3>À retenir</h3>${missed.map((q) => `
           <div class="review-item"><strong>${escapeHtml(q.q)}</strong><br>✅ ${escapeHtml(q.c[q.a])}<br><span class="muted">${escapeHtml(q.e)}</span></div>`).join('')}</div>` : ''}
       </div>`;
-    $('#again').addEventListener('click', (event) => { event.preventDefault(); renderQuiz(subject); });
+    $('#again').addEventListener('click', (event) => { event.preventDefault(); renderQuiz(subject, chapterId); });
   }
 
   const onKey = (event) => {
@@ -730,6 +940,25 @@ function renderBlock(block) {
   }
 }
 
+function renderChapterGate(subject, chapter, understood) {
+  const hasQuiz = chapter.quiz && chapter.quiz.length >= CHAPTER_TEST_SIZE;
+  const tests = state.chapterTests[`${subject}/${chapter.id}`] || { passed: 0, tries: 0 };
+  const passed = Math.min(tests.passed, TESTS_TO_UNDERSTAND);
+  const unlocked = !hasQuiz || passed >= TESTS_TO_UNDERSTAND;
+  const dots = Array.from({ length: TESTS_TO_UNDERSTAND }, (_, i) => `<span class="dot ${i < passed ? 'on' : ''}"></span>`).join('');
+  return `
+    <div class="chapter-gate">
+      ${hasQuiz ? `<div class="gate-head"><h3>🎯 Valide ce chapitre</h3><span class="dots" title="${passed} / ${TESTS_TO_UNDERSTAND} tests réussis">${dots}</span></div>
+      <p class="muted">${understood ? 'Chapitre validé. Tu peux continuer à t’entraîner : chaque test rapporte de l’XP.' : `Réussis ${TESTS_TO_UNDERSTAND} tests de ${CHAPTER_TEST_SIZE} questions (au moins ${CHAPTER_TEST_PASS} bonnes réponses) pour débloquer « J’ai compris ». Les questions changent à chaque test.`}</p>` : ''}
+      <div class="btn-row chapter-actions">
+        ${hasQuiz ? `<a class="btn" href="#/test/${subject}/${chapter.id}">Lancer un test · ${passed} / ${TESTS_TO_UNDERSTAND}</a>` : ''}
+        ${understood ? '<span class="pill" style="background:var(--success-soft);color:#11603f">✅ Chapitre compris</span>'
+          : unlocked ? '<button class="btn success" id="understood">J’ai compris · +10 XP</button>'
+          : `<button class="btn ghost" disabled title="Encore ${TESTS_TO_UNDERSTAND - passed} test(s) à réussir">🔒 J’ai compris</button>`}
+      </div>
+    </div>`;
+}
+
 function renderCourses(subject, chapterId) {
   if (!SUBJECTS[subject]) subject = 'francais';
   const chapters = COURS[subject] || [];
@@ -764,11 +993,9 @@ function renderCourses(subject, chapterId) {
         <h2 style="margin-top:10px">${escapeHtml(chapter.title)}</h2>
         <p class="lead">${inline(chapter.intro)}</p>
         ${chapter.blocks.filter((block) => block.t !== 'check').map(renderBlock).join('')}
+        ${chapter.astuces && chapter.astuces.length ? `<section class="astuces"><h3>💡 Astuces <span class="muted">(${chapter.astuces.length})</span></h3><ul>${chapter.astuces.map((tip) => `<li>${inline(tip)}</li>`).join('')}</ul></section>` : ''}
         ${checks.length ? `<div class="checks"><h3>🧠 Teste-toi</h3><p class="muted">Cherche la réponse dans ta tête avant de l’afficher.</p>${checks.map(renderBlock).join('')}</div>` : ''}
-        <div class="btn-row chapter-actions">
-          ${read.includes(key(chapter)) ? '<span class="pill" style="background:var(--success-soft);color:#11603f">✅ Chapitre compris</span>' : '<button class="btn success" id="understood">J’ai compris · +10 XP</button>'}
-          <a class="btn ghost" href="#/quiz/${subject}">🎯 Quiz ${SUBJECTS[subject].label}</a>
-        </div>
+        ${renderChapterGate(subject, chapter, read.includes(key(chapter)))}
         <div class="chapter-nav">
           ${index > 0 ? `<a href="#/cours/${subject}/${chapters[index - 1].id}">← ${escapeHtml(chapters[index - 1].title)}</a>` : '<span></span>'}
           ${index < chapters.length - 1 ? `<a href="#/cours/${subject}/${chapters[index + 1].id}">${escapeHtml(chapters[index + 1].title)} →</a>` : ''}
@@ -992,6 +1219,7 @@ function renderMethod() {
       </ol>
       <div class="btn-row">
         <a class="btn" href="#/cartes">Commencer par les cartes</a>
+        <a class="btn ghost" href="#/sync">☁️ Synchroniser mes appareils</a>
         <button class="btn ghost" id="reset">Réinitialiser ma progression</button>
       </div>
     </section>`;
@@ -1004,12 +1232,15 @@ function renderMethod() {
       return;
     }
     state = defaultState();
-    save();
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) { /* ignoré */ }
+    syncNow({ silent: true, overwrite: true }); // sinon la fusion ramènerait l’ancienne progression
     toast('Progression réinitialisée');
     router();
   });
 }
 
 window.addEventListener('hashchange', router);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+setTimeout(() => syncNow(), 500);
 refreshDay();
 router();

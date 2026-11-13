@@ -356,3 +356,30 @@ kbd { font-family: inherit; font-size: .85em; padding: 1px 6px; border-radius: 6
   .level-group .tabs { overflow: visible; }
 }
 .course-layout > *, .grid > * { min-width: 0; }
+
+/* Astuces et validation de chapitre */
+.astuces { margin-top: 28px; padding: 18px 20px; border-radius: 16px; background: var(--xp-soft); }
+.astuces h3 { margin-top: 0; }
+.astuces ul { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.chapter-gate { margin-top: 28px; padding: 18px 20px; border-radius: 16px; border: 2px solid var(--border); }
+.gate-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.gate-head h3 { margin: 0; }
+.dots { display: inline-flex; gap: 6px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--border); }
+.dot.on { background: var(--success); border-color: var(--success); }
+.test-line { margin: 4px 0 12px; }
+
+/* Synchronisation */
+.pill.sync { text-decoration: none; background: var(--surface-2); }
+.sync-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.sync-form input { flex: 1 1 240px; min-width: 0; font: inherit; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--border); }
+.sync-form input:focus { outline: none; border-color: var(--primary); }
+code { font-size: .9em; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); }
+@media (max-width: 420px) {
+  .topbar { gap: 8px; padding: 10px 12px; }
+  .brand { font-size: .95rem; }
+  .brand-logo { display: none; }
+  .stats { gap: 4px; }
+  .pill { padding: 4px 7px; font-size: .8rem; }
+  .pill.level { display: none; }
+}
