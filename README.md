@@ -33,3 +33,7 @@ Blocs disponibles : `h` (sous-titre), `p`, `list`, `steps`, `table` (`head`, `ro
 ## Niveaux
 
 `js/niveaux/*.js` remplit `ATTENDUS` (`{ niveau, matiere, domaine, items: [{ o, ex }] }`) et `ESSENTIELS` (`{ niveau, matiere, items }`). Format de référence : `js/niveaux/exemple-format.txt`. La maternelle est en `niveau: 'MAT'` avec la tranche d’âge du programme en fin de `domaine` ; la page l’associe à PS, MS ou GS à titre indicatif.
+
+## Cache navigateur
+
+Les fichiers CSS et JS sont appelés avec un suffixe `?v=N` dans `index.html`. Après une modification de ces fichiers, incrémenter ce numéro pour que les navigateurs (mobile surtout) chargent la nouvelle version.

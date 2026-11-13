@@ -204,6 +204,7 @@ function router() {
     link.classList.toggle('active', target === (section || ''));
   });
   window.scrollTo(0, 0);
+  revealActiveTabs();
   renderStats();
 }
 
@@ -231,7 +232,7 @@ function renderHome() {
         <h2>Niveau ${level}</h2>
         <div class="goal-bar"><span style="width:${Math.round(progress * 100)}%;background:var(--primary)"></span></div>
         <p class="muted">${toNext} XP avant le niveau ${level + 1}</p>
-        <div class="grid grid-2">
+        <div class="grid grid-2 keep-2">
           <div><strong style="font-size:1.6rem">🔥 ${currentStreak()}</strong><br><span class="muted">jours d’affilée</span></div>
           <div><strong style="font-size:1.6rem">🃏 ${state.cardsReviewed}</strong><br><span class="muted">cartes révisées</span></div>
         </div>
@@ -474,7 +475,7 @@ function renderCards(subject) {
         ${filters}
         <div class="flashcard" id="card">
           <div class="flashcard-inner">
-            <div class="flashcard-face"><span class="tag" ${subjectStyle(card.s)}>${SUBJECTS[card.s].label}${info ? ` · boîte ${info.box}` : ' · nouvelle'}</span><p class="term" style="margin-top:16px">${escapeHtml(card.f)}</p><span class="hint">Formule ta réponse dans ta tête, puis clique ou appuie sur <kbd>Espace</kbd></span></div>
+            <div class="flashcard-face"><span class="tag" ${subjectStyle(card.s)}>${SUBJECTS[card.s].label}${info ? ` · boîte ${info.box}` : ' · nouvelle'}</span><p class="term" style="margin-top:16px">${escapeHtml(card.f)}</p><span class="hint">Formule ta réponse dans ta tête, puis retourne la carte <kbd>Espace</kbd></span></div>
             <div class="flashcard-face back"><strong class="muted">${escapeHtml(card.f)}</strong><p class="def">${escapeHtml(card.b)}</p></div>
           </div>
         </div>
@@ -572,7 +573,7 @@ function renderCalc() {
     intro: `
       <div class="play card result">
         <div class="big">🧮</div><h2>Calcul mental · 60 secondes</h2>
-        <p class="muted">Tape ta réponse puis <kbd>Entrée</kbd>. Additions, tables, pourcentages, fractions d’une quantité… Record : ${state.best.calc}.</p>
+        <p class="muted">Tape ta réponse puis valide. Additions, tables, pourcentages, fractions d’une quantité… Record : ${state.best.calc}.</p>
         <button class="btn" id="start">C’est parti !</button>
       </div>`,
     onStart() {
@@ -580,13 +581,19 @@ function renderCalc() {
         <div class="play">
           <div class="play-top"><a class="icon-btn" href="#/jeux" title="Quitter">✕</a><div style="flex:1"></div><div class="combo">✅ <span id="score">0</span></div><div class="timer" id="timer">⏱ 60</div></div>
           <div class="calc" id="calc"></div>
-          <input class="calc-input" id="answer" inputmode="decimal" autocomplete="off" aria-label="Ta réponse">
+          <form id="calc-form" class="calc-form" autocomplete="off">
+            <input class="calc-input" id="answer" inputmode="decimal" enterkeyhint="done" aria-label="Ta réponse">
+            <button class="btn" type="submit">Valider</button>
+          </form>
           <p class="muted" style="text-align:center;margin-top:12px" id="hint">&nbsp;</p>
         </div>`;
       const input = $('#answer');
-      const nextQuestion = () => { current = calcQuestion(); $('#calc').textContent = `${current[0]} = ?`; input.value = ''; input.className = 'calc-input'; input.focus(); };
-      input.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' || input.value.trim() === '') return;
+      let waiting = false;
+      const nextQuestion = () => { waiting = false; current = calcQuestion(); $('#calc').textContent = `${current[0]} = ?`; input.value = ''; input.className = 'calc-input'; input.focus(); };
+      $('#calc-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (waiting || input.value.trim() === '') return;
+        waiting = true;
         const value = Number(input.value.replace(',', '.').replace(/\s/g, ''));
         if (value === current[1]) {
           score++;
@@ -635,7 +642,7 @@ function renderTrueFalse() {
     intro: `
       <div class="play card result">
         <div class="big">⚡</div><h2>Vrai ou faux éclair · 45 secondes</h2>
-        <p class="muted">Réponds le plus vite possible. Clavier : <kbd>←</kbd> faux, <kbd>→</kbd> vrai. Record : ${state.best.tf}.</p>
+        <p class="muted">Réponds le plus vite possible.<span class="keyboard-only"> Clavier : <kbd>←</kbd> faux, <kbd>→</kbd> vrai.</span> Record : ${state.best.tf}.</p>
         <button class="btn" id="start">C’est parti !</button>
       </div>`,
     onStart() {
@@ -741,13 +748,15 @@ function renderCourses(subject, chapterId) {
     </div>
     <div class="course-layout">
       <aside class="card course-nav" ${subjectStyle(subject)}>
-        <strong>${SUBJECTS[subject].emoji} ${SUBJECTS[subject].label}</strong>
+        <details ${window.innerWidth > 860 ? 'open' : ''}>
+        <summary><strong>${SUBJECTS[subject].emoji} ${SUBJECTS[subject].label}</strong><span class="chapters-toggle muted">Chapitres</span>
         <div class="bar"><span style="width:${chapters.length ? (doneCount / chapters.length) * 100 : 0}%"></span></div>
-        <small class="muted">${doneCount} / ${chapters.length} chapitres compris</small>
+        <small class="muted">${doneCount} / ${chapters.length} chapitres compris</small></summary>
         <ol>
           ${chapters.map((c, i) => `<li><a class="${i === index ? 'active' : ''}" href="#/cours/${subject}/${c.id}">${read.includes(key(c)) ? '✅' : `<span class="num">${i + 1}</span>`} ${escapeHtml(c.title)}</a></li>`).join('')}
         </ol>
         ${fiche && fiche.links.length ? `<h4>Pour aller plus loin</h4><ul class="res-list">${fiche.links.map(([label, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)} ↗</a></li>`).join('')}</ul>` : ''}
+        </details>
       </aside>
       ${chapter ? `
       <article class="card fiche" ${subjectStyle(subject)}>
@@ -766,6 +775,9 @@ function renderCourses(subject, chapterId) {
         </div>
       </article>` : '<article class="card"><p class="muted">Les chapitres de cette matière arrivent bientôt.</p></article>'}
     </div>`;
+
+  const summary = $('.course-nav summary');
+  if (summary) summary.addEventListener('click', (event) => { if (window.innerWidth > 860) event.preventDefault(); });
 
   const button = $('#understood');
   if (button) button.addEventListener('click', () => {
@@ -835,6 +847,13 @@ function renderLevels(levelId) {
     </div>
     <p class="muted" style="margin-top:20px;font-size:.9rem">Source : ${escapeHtml(source.label)} : ${source.urls.map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)} ↗</a>`).join(' · ')}.
     Les autres domaines (sciences, histoire-géographie, EMC, arts, EPS, langues) sont définis par cycle et non par année.</p>`;
+}
+
+function revealActiveTabs() {
+  document.querySelectorAll('.tabs .tab.active').forEach((tab) => {
+    const strip = tab.closest('.level-picker') || tab.closest('.tabs');
+    if (strip.scrollWidth > strip.clientWidth) strip.scrollLeft = tab.offsetLeft - strip.clientWidth / 2 + tab.offsetWidth / 2;
+  });
 }
 
 /* Jeu « À quel niveau ? » : retrouver la classe d’un objectif d’apprentissage. */
@@ -929,9 +948,9 @@ function renderAnnales() {
     <p class="muted">Faire des sujets en conditions réelles, puis lire le corrigé et le rapport du jury : c’est la meilleure préparation aux écrits.</p>
     <div class="card" style="overflow-x:auto">
       <h2>Le CRPE externe bac+3 en un coup d’œil</h2>
-      <table class="exam-table">
+      <table class="exam-table stack">
         <thead><tr><th>Épreuve</th><th>Contenu</th><th>Durée</th><th>Coef.</th><th>À savoir</th></tr></thead>
-        <tbody>${EXAMS.map((row) => `<tr>${row.map((cell, i) => `<td>${i === 0 ? `<strong>${escapeHtml(cell)}</strong>` : escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tbody>${EXAMS.map((row) => `<tr>${row.map((cell, i) => `<td data-label="${['Épreuve', 'Contenu', 'Durée', 'Coef.', 'À savoir'][i]}">${i === 0 ? `<strong>${escapeHtml(cell)}</strong>` : escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
       </table>
       <p class="muted" style="margin:12px 0 0;font-size:.9rem">Source : devenirenseignant.gouv.fr (consulté en novembre 2026). Vérifie toujours la page officielle avant le concours.</p>
     </div>
