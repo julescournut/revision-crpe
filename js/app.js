@@ -35,9 +35,35 @@ Object.keys(COURS).forEach((subject) => COURS[subject].forEach((chapter) => (cha
   CHAPTER_QUESTIONS.push({ ...q, s: subject, chapter: chapter.id, id: hash(q.q) });
 })));
 const ALL_QUESTIONS = QUESTIONS.concat(CHAPTER_QUESTIONS);
+// Questions produites au chargement (corpus annoté) : elles servent aux tests de chapitre et restent retrouvables dans « Mes erreurs ».
+const POOL_QUESTIONS = [];
+Object.keys(QUESTION_POOLS).forEach((key) => {
+  const [subject, chapter] = key.split('/');
+  QUESTION_POOLS[key].forEach((q) => POOL_QUESTIONS.push({ ...q, s: subject, chapter, id: hash(q.q) }));
+});
 const TESTS_TO_UNDERSTAND = 3; // tests réussis pour débloquer « J’ai compris »
-const CHAPTER_TEST_SIZE = 5;
-const CHAPTER_TEST_PASS = 4; // bonnes réponses minimum sur 5
+const CHAPTER_TEST_SIZE = 8;
+const CHAPTER_TEST_PASS = 6; // bonnes réponses minimum sur 8
+
+/* Questions d'un test de chapitre : la moitié écrite à la main, l'autre tirée du corpus ou des générateurs aléatoires. */
+function chapterTestQuestions(subject, chapterId) {
+  const key = `${subject}/${chapterId}`;
+  const written = shuffle(CHAPTER_QUESTIONS.filter((q) => q.s === subject && q.chapter === chapterId));
+  const pool = shuffle(POOL_QUESTIONS.filter((q) => q.s === subject && q.chapter === chapterId));
+  const generators = GENERATORS[key] || [];
+  const random = [];
+  const seen = new Set();
+  const randomCount = pool.length || generators.length ? Math.ceil(CHAPTER_TEST_SIZE / 2) : 0;
+  for (let attempt = 0; random.length < randomCount && attempt < 60; attempt++) {
+    const fromPool = pool.length && (!generators.length || attempt % 2 === 0);
+    const q = fromPool ? pool.pop() : generators[attempt % generators.length]();
+    if (!q || seen.has(q.q)) continue;
+    seen.add(q.q);
+    random.push(fromPool ? q : { ...q, s: subject, chapter: chapterId, id: hash(q.q), generated: true });
+  }
+  return shuffle(written.slice(0, CHAPTER_TEST_SIZE - random.length).concat(random));
+}
+const chapterHasTest = (subject, chapter) => (chapter.quiz || []).length + (QUESTION_POOLS[`${subject}/${chapter.id}`] || []).length + (GENERATORS[`${subject}/${chapter.id}`] ? CHAPTER_TEST_SIZE : 0) >= CHAPTER_TEST_SIZE;
 FLASHCARDS.forEach((card) => { card.id = hash(card.f); });
 
 /* ================= État persistant ================= */
@@ -54,8 +80,9 @@ const defaultState = () => ({
   wrong: [],
   cards: {},
   cardsReviewed: 0,
-  best: { calc: 0, tf: 0 },
+  best: { calc: 0, tf: 0, natures: 0 },
   chaptersRead: [],
+  natures: {},
 });
 
 let state = load();
@@ -106,7 +133,13 @@ function mergeStates(a, b) {
   merged.chaptersRead = union(a.chaptersRead, b.chaptersRead);
   merged.wrong = union(a.wrong, b.wrong);
   merged.cardsReviewed = Math.max(a.cardsReviewed, b.cardsReviewed);
-  merged.best = { calc: Math.max(a.best.calc || 0, b.best.calc || 0), tf: Math.max(a.best.tf || 0, b.best.tf || 0) };
+  merged.best = { calc: Math.max(a.best.calc || 0, b.best.calc || 0), tf: Math.max(a.best.tf || 0, b.best.tf || 0), natures: Math.max(a.best.natures || 0, b.best.natures || 0) };
+  merged.natures = {};
+  union(Object.keys(a.natures || {}), Object.keys(b.natures || {})).forEach((k) => {
+    const x = (a.natures || {})[k] || { ok: 0, total: 0 };
+    const y = (b.natures || {})[k] || { ok: 0, total: 0 };
+    merged.natures[k] = x.total >= y.total ? x : y;
+  });
   merged.subjects = {};
   union(Object.keys(a.subjects), Object.keys(b.subjects)).forEach((k) => {
     const x = a.subjects[k] || { answered: 0, correct: 0 };
@@ -379,6 +412,7 @@ const routes = {
   cartes: renderCards,
   calcul: renderCalc,
   vraifaux: renderTrueFalse,
+  natures: renderNatures,
   cours: renderCourses,
   niveaux: renderLevels,
   'quel-niveau': renderLevelQuiz,
@@ -393,7 +427,7 @@ function router() {
   (routes[route] || renderHome)(param, sub);
   document.querySelectorAll('#nav a').forEach((link) => {
     const target = link.dataset.route;
-    const section = route === 'test' ? 'cours' : ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau'].includes(route) ? 'jeux' : route;
+    const section = route === 'test' ? 'cours' : ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau', 'natures'].includes(route) ? 'jeux' : route;
     link.classList.toggle('active', target === (section || ''));
   });
   window.scrollTo(0, 0);
@@ -481,6 +515,10 @@ function renderGames() {
         <span class="emoji">🎲</span><h3>À quel niveau ?</h3>
         <p class="muted">Un objectif du programme s’affiche : retrouve la classe, du CP au CM2. Parfait pour préparer l’oral 1.</p>
       </a>
+      <a class="card link-card" href="#/natures">
+        <span class="emoji">🔤</span><h3>Natures des mots</h3>
+        <p class="muted">Classes grammaticales en trois modes : éclair 60 s, chasse aux mots, analyse complète d’une phrase. Avec ta maîtrise par classe.</p>
+      </a>
       <a class="card link-card" href="#/vraifaux">
         <span class="emoji">⚡</span><h3>Vrai ou faux éclair · 45 s</h3>
         <p class="muted">Débusque les idées reçues (et les pièges du concours). Record actuel : ${state.best.tf}.</p>
@@ -505,8 +543,8 @@ function renderQuiz(subject = 'melange', chapterId) {
   let pool;
   const chapter = SUBJECTS[subject] && chapterId ? (COURS[subject] || []).find((c) => c.id === chapterId) : null;
   const chapterKey = chapter ? `${subject}/${chapter.id}` : null;
-  if (chapter) pool = CHAPTER_QUESTIONS.filter((q) => q.s === subject && q.chapter === chapter.id);
-  else if (subject === 'erreurs') pool = ALL_QUESTIONS.filter((q) => state.wrong.includes(q.id));
+  if (chapter) pool = chapterTestQuestions(subject, chapter.id);
+  else if (subject === 'erreurs') pool = ALL_QUESTIONS.concat(POOL_QUESTIONS).filter((q) => state.wrong.includes(q.id));
   else if (SUBJECTS[subject]) pool = ALL_QUESTIONS.filter((q) => q.s === subject);
   else { subject = 'melange'; pool = ALL_QUESTIONS; }
 
@@ -515,7 +553,7 @@ function renderQuiz(subject = 'melange', chapterId) {
     return;
   }
 
-  const questions = shuffle(pool).slice(0, chapter ? CHAPTER_TEST_SIZE : 10).map((q) => {
+  const questions = (chapter ? pool : shuffle(pool).slice(0, 10)).map((q) => {
     const order = shuffle(q.c.map((_, i) => i));
     return { ...q, choices: order.map((i) => q.c[i]), answer: order.indexOf(q.a) };
   });
@@ -573,7 +611,7 @@ function renderQuiz(subject = 'melange', chapterId) {
     } else {
       combo = 0;
       buttons[choiceIndex].classList.add('wrong', 'shake');
-      if (!state.wrong.includes(q.id)) state.wrong.push(q.id);
+      if (!q.generated && !state.wrong.includes(q.id)) state.wrong.push(q.id);
       missed.push(q);
     }
     save();
@@ -941,7 +979,7 @@ function renderBlock(block) {
 }
 
 function renderChapterGate(subject, chapter, understood) {
-  const hasQuiz = chapter.quiz && chapter.quiz.length >= CHAPTER_TEST_SIZE;
+  const hasQuiz = chapterHasTest(subject, chapter);
   const tests = state.chapterTests[`${subject}/${chapter.id}`] || { passed: 0, tries: 0 };
   const passed = Math.min(tests.passed, TESTS_TO_UNDERSTAND);
   const unlocked = !hasQuiz || passed >= TESTS_TO_UNDERSTAND;
@@ -994,6 +1032,7 @@ function renderCourses(subject, chapterId) {
         <p class="lead">${inline(chapter.intro)}</p>
         ${chapter.blocks.filter((block) => block.t !== 'check').map(renderBlock).join('')}
         ${chapter.astuces && chapter.astuces.length ? `<section class="astuces"><h3>💡 Astuces <span class="muted">(${chapter.astuces.length})</span></h3><ul>${chapter.astuces.map((tip) => `<li>${inline(tip)}</li>`).join('')}</ul></section>` : ''}
+        ${chapter.practice ? `<div class="practice"><h3>🎮 ${escapeHtml(chapter.practice.title)}</h3><p class="muted">${inline(chapter.practice.text)}</p><div class="btn-row">${chapter.practice.links.map(([label, href], i) => `<a class="btn ${i ? 'ghost' : ''}" href="${href}">${escapeHtml(label)}</a>`).join('')}</div></div>` : ''}
         ${checks.length ? `<div class="checks"><h3>🧠 Teste-toi</h3><p class="muted">Cherche la réponse dans ta tête avant de l’afficher.</p>${checks.map(renderBlock).join('')}</div>` : ''}
         ${renderChapterGate(subject, chapter, read.includes(key(chapter)))}
         <div class="chapter-nav">

@@ -383,3 +383,57 @@ code { font-size: .9em; padding: 1px 6px; border-radius: 6px; background: var(--
   .pill { padding: 4px 7px; font-size: .8rem; }
   .pill.level { display: none; }
 }
+
+/* Jeu « Natures des mots » */
+.practice { margin-top: 28px; padding: 18px 20px; border-radius: 16px; background: var(--primary-soft); }
+.practice h3 { margin-top: 0; }
+.practice .btn-row { margin-top: 8px; }
+.nature-card { margin-bottom: 18px; }
+.nature-sentence { font-size: 1.35rem; font-weight: 700; line-height: 2; text-align: center; padding: 12px 0; }
+.nature-sentence mark { background: var(--xp-soft); color: inherit; padding: 2px 8px; border-radius: 8px; box-shadow: inset 0 -3px 0 var(--xp); }
+.review-item mark { background: var(--xp-soft); color: inherit; padding: 0 4px; border-radius: 4px; }
+.nature-instruction { font-size: 1.1rem; text-align: center; margin: 0 0 14px; }
+.nature-hint { text-align: center; margin-top: 14px; min-height: 3.2em; color: var(--muted); }
+.family-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.family-grid .choice { padding: 12px 10px; justify-content: center; text-align: center; }
+.family-grid.compact .choice { padding: 8px 6px; font-size: .92rem; }
+.family-grid .choice.picked { border-color: var(--primary); background: var(--primary-soft); }
+.words .w {
+  font: inherit; color: inherit; background: var(--surface-2); border: 2px solid transparent; border-radius: 10px;
+  padding: 0 8px; margin: 2px 0; cursor: pointer; line-height: 1.6;
+}
+.words .w:hover:not(:disabled) { border-color: var(--border); }
+.words .w.selected { background: var(--primary-soft); border-color: var(--primary); }
+.words .w.found { background: var(--success-soft); border-color: var(--success); }
+.words .w.missed { background: var(--danger-soft); border-color: var(--danger); }
+.words .w.intruder { background: var(--danger-soft); border-color: var(--danger); text-decoration: line-through; }
+.words .w.half { background: var(--xp-soft); border-color: var(--xp); }
+.words .w:disabled { cursor: default; }
+.words.analyse { line-height: 1.3; }
+.words.analyse .w { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; padding: 4px 8px; margin: 4px 0; }
+.words.analyse .w small { font-size: .62rem; font-weight: 700; color: var(--muted); max-width: 9em; white-space: normal; line-height: 1.2; }
+.words.analyse .w.active { border-color: var(--primary); background: var(--primary-soft); }
+.words.analyse .w.tagged small { color: var(--primary); }
+.nature-panel { margin-bottom: 8px; }
+.nature-panel > p { margin: 10px 0 8px; }
+.subtype-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { font: inherit; font-size: .9rem; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.chip-btn:hover { background: var(--surface-2); }
+.chip-btn.picked { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.nature-lines { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 6px; font-weight: 400; }
+.nature-mastery { display: grid; gap: 10px; }
+.mastery-row { display: grid; grid-template-columns: 11em 1fr 7em; gap: 12px; align-items: center; }
+.mastery-row .bar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.mastery-row .bar span { display: block; height: 100%; background: var(--muted); border-radius: 999px; }
+.mastery-row .bar.good span { background: var(--success); }
+.mastery-row .bar.mid span { background: var(--xp); }
+.mastery-row .bar.low span { background: var(--danger); }
+.mastery-row small { text-align: right; }
+@media (max-width: 860px) {
+  .nature-sentence { font-size: 1.12rem; }
+  .family-grid { gap: 8px; }
+  .family-grid .choice { padding: 10px 4px; font-size: .9rem; }
+  .family-grid .choice .key { display: none; }
+  .mastery-row { grid-template-columns: 8.5em 1fr 5.5em; gap: 8px; font-size: .9rem; }
+}
+.nature-lines strong { display: inline; }

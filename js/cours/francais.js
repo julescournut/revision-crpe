@@ -89,6 +89,11 @@ COURS.francais = [
       'Dans un tableau d’analyse, écris la nature précise attendue (« déterminant possessif », pas seulement « déterminant ») : le jury valorise la précision.',
       'Révise avec des phrases courtes de ton choix : prends cinq mots au hasard dans un texte et donne leur nature en moins d’une minute.',
     ],
+    practice: {
+      title: 'S’entraîner sur les natures',
+      text: 'Trois jeux sur des phrases analysées mot par mot, qui reviennent plus souvent sur les classes où tu te trompes. Les tests de ce chapitre piochent aussi dans ces phrases : chaque test est différent.',
+      links: [['⚡ Nature éclair', '#/natures/eclair'], ['🔎 Chasse aux mots', '#/natures/chasse'], ['🧩 Analyse complète', '#/natures/analyse'], ['Ma maîtrise et le mémo', '#/natures']],
+    },
     quiz: [
       { q: 'Dans « Leurs enfants jouent », quelle est la nature de « leurs » ?', c: ['Déterminant possessif', 'Pronom personnel', 'Pronom possessif', 'Adjectif qualificatif'], a: 0, e: 'Il accompagne le nom « enfants » et s’accorde au pluriel : c’est un déterminant possessif.' },
       { q: 'Dans « Je leur ai écrit », quelle est la nature de « leur » ?', c: ['Pronom personnel', 'Déterminant possessif', 'Adverbe', 'Pronom relatif'], a: 0, e: 'Placé devant le verbe, il remplace « à eux » : pronom personnel invariable.' },
@@ -102,6 +107,14 @@ COURS.francais = [
       { q: 'Dans « Plusieurs sont absents », quelle est la nature de « plusieurs » ?', c: ['Pronom indéfini', 'Déterminant indéfini', 'Adverbe', 'Nom'], a: 0, e: 'Il remplace un groupe nominal et occupe la place du sujet : pronom indéfini.' },
       { q: 'Combien y a-t-il de classes de mots invariables ?', c: ['4', '5', '3', '9'], a: 0, e: 'Adverbe, préposition, conjonction et interjection. Les 5 classes variables sont nom, déterminant, adjectif, pronom et verbe.' },
       { q: 'Dans « Elle part avec son frère », quelle est la nature de « avec » ?', c: ['Préposition', 'Adverbe', 'Conjonction de coordination', 'Déterminant'], a: 0, e: '« avec » introduit le complément « son frère » : préposition.' },
+      { q: 'Quelle différence entre nature et fonction ?', c: ['La nature est fixe (ce que le mot est), la fonction dépend de son rôle dans la phrase', 'La nature dépend de la phrase, la fonction est fixe', 'Ce sont deux mots pour la même notion', 'La nature ne concerne que les noms'], a: 0, e: '« chat » est toujours un nom (nature) ; il peut être sujet, COD ou complément du nom selon la phrase (fonction).' },
+      { q: 'Laquelle de ces classes est variable ?', c: ['Le pronom', 'L’adverbe', 'La préposition', 'La conjonction'], a: 0, e: 'Nom, déterminant, adjectif, pronom et verbe varient ; adverbe, préposition, conjonction et interjection sont invariables.' },
+      { q: 'Quel test permet le mieux de reconnaître un adjectif qualificatif ?', c: ['Ajouter « très » devant et le mettre au féminin', 'Placer un déterminant devant', 'Changer le temps de la phrase', 'Chercher un antécédent'], a: 0, e: 'très ancien, ancienne : l’adjectif accepte un adverbe d’intensité et s’accorde en genre.' },
+      { q: 'Quel mot n’est PAS une conjonction de subordination ?', c: ['donc', 'lorsque', 'puisque', 'quand'], a: 0, e: '« donc » est une conjonction de coordination (mais, ou, et, donc, or, ni, car).' },
+      { q: 'Dans « au marché », que contient « au » ?', c: ['La préposition à et l’article défini le', 'L’article indéfini un', 'La préposition à seule', 'Le pronom le'], a: 0, e: '« au » est un article défini contracté : à + le.' },
+      { q: 'Quelle est la nature de « le » dans « Ce livre, je le lis » ?', c: ['Pronom personnel', 'Article défini', 'Déterminant démonstratif', 'Pronom démonstratif'], a: 0, e: 'Placé devant le verbe, il remplace « ce livre » : pronom personnel.' },
+      { q: 'Quelle est la nature de « dont » dans « l’ami dont je parle » ?', c: ['Pronom relatif', 'Préposition', 'Conjonction de subordination', 'Adverbe'], a: 0, e: '« dont » reprend l’antécédent « ami » (je parle de l’ami) : pronom relatif.' },
+      { q: 'Dans « Quelle chance ! », quelle est la nature de « quelle » ?', c: ['Déterminant exclamatif', 'Pronom interrogatif', 'Adjectif qualificatif', 'Interjection'], a: 0, e: 'Il introduit le nom « chance » dans une phrase exclamative : déterminant exclamatif.' },
     ],
   },
   {

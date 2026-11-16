@@ -1,6 +1,8 @@
 const COURS = {}; // rempli par les fichiers js/cours/*.js
 const ATTENDUS = []; // attendus par niveau, remplis par js/niveaux/*.js
 const ESSENTIELS = []; // l’essentiel par niveau et par matière, rempli par js/niveaux/*.js
+const QUESTION_POOLS = {}; // 'matière/chapitre' → questions produites au chargement (js/grammaire.js)
+const GENERATORS = {}; // 'matière/chapitre' → fonctions qui tirent une question au hasard (js/generateurs.js)
 const LEVELS = [
   { id: 'PS', label: 'Petite section', cycle: 1 },
   { id: 'MS', label: 'Moyenne section', cycle: 1 },

@@ -14,8 +14,8 @@ Puis ouvrir http://127.0.0.1:8765/. Aucune dépendance, aucun build : HTML, CSS 
 
 ## Contenu
 
-- **Jeux** : quiz par matière ou mélangé (explication après chaque réponse, combos), cartes mémoire en répétition espacée (système de Leitner à 5 boîtes), calcul mental en 60 s, vrai/faux éclair en 45 s.
-- **Cours** : chapitres par matière (essentiel, exemples, pièges, astuces, questions « Teste-toi »). Chaque chapitre a sa banque de questions : « J’ai compris » se débloque après 3 tests de 5 questions réussis (au moins 4 bonnes réponses). Ces questions alimentent aussi les quiz par matière et « Mes erreurs ».
+- **Jeux** : quiz par matière ou mélangé (explication après chaque réponse, combos), cartes mémoire en répétition espacée (système de Leitner à 5 boîtes), calcul mental en 60 s, vrai/faux éclair en 45 s, natures des mots (éclair 60 s, chasse aux mots, analyse complète d’une phrase, avec maîtrise par classe).
+- **Cours** : chapitres par matière (essentiel, exemples, pièges, astuces, questions « Teste-toi »). Chaque chapitre a sa banque de questions : « J’ai compris » se débloque après 3 tests de 8 questions réussis (au moins 6 bonnes réponses). Un test mêle questions écrites à la main et questions tirées au hasard (corpus annoté ou générateurs), donc il change à chaque fois. Ces questions alimentent aussi les quiz par matière et « Mes erreurs ».
 - **Niveaux** : objectifs d’apprentissage et exemples de réussite de la PS au CM2 en français et en maths, tirés des programmes officiels (cycles 1 et 2 : BO n° 41 du 31 octobre 2024 ; cycle 3 : BO n° 16 du 17 avril 2025), et jeu « À quel niveau ? ».
 - **Annales** : tableau des épreuves, sujets et rapports de jury officiels, annales corrigées.
 - **Progression** : XP, niveaux, objectif quotidien, série de jours, badges. Stockée dans le `localStorage` du navigateur, et synchronisable entre appareils via un Gist GitHub privé (page `#/sync`, jeton à permission « Gists » uniquement ; les progressions sont fusionnées en gardant le meilleur de chaque appareil).
@@ -31,6 +31,11 @@ La progression d'une question ou d'une carte est indexée sur un hash de son tex
 Un fichier par matière dans `js/cours/` remplit `COURS.<matière>` avec une liste de chapitres `{ id, title, intro, blocks, astuces, quiz }` (`quiz` : questions `{ q, c, a, e }` comme dans `js/data.js`, au moins 5). Le chapitre `classes-de-mots` de `js/cours/francais.js` sert de modèle complet.
 
 Blocs disponibles : `h` (sous-titre), `p`, `list`, `steps`, `table` (`head`, `rows`), `example` (`title`, `items`), `trap`, `tip`, `key` (`items`), `check` (`q`, `a` : question « Teste-toi », regroupées en fin de chapitre). Mise en forme dans le texte : `**gras**` et `*italique*` seulement, donc pas d'astérisque pour multiplier (utiliser ×).
+
+## Questions aléatoires et corpus de natures
+
+- `js/grammaire.js` : phrases annotées mot par mot (`mot/CODE`, codes dans `NATURE_TAGS`, remarques par mot dans `n`). Elles alimentent le jeu `#/natures` (`js/jeux-natures.js`) et `QUESTION_POOLS['francais/classes-de-mots']`, questions stables donc retrouvables dans « Mes erreurs ».
+- `js/generateurs.js` : `GENERATORS['matière/chapitre']`, fonctions qui tirent une question `{ q, c, a, e }` au hasard (maths, conjugaison). Ces questions ne vont pas dans « Mes erreurs » : elles sont regénérées à chaque test.
 
 ## Niveaux
 
