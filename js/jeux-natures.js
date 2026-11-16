@@ -14,6 +14,8 @@ const NATURE_SUBTYPES = {
 };
 const NATURE_PLURALS = { nom: 'noms', det: 'déterminants', adj: 'adjectifs', pro: 'pronoms', verbe: 'verbes', adv: 'adverbes', prep: 'prépositions', conj: 'conjonctions', interj: 'interjections' };
 
+// Touches calquées sur le pavé numérique : la grille 3 × 3 se lit 7 8 9 / 4 5 6 / 1 2 3.
+const numpadKey = (index) => (2 - Math.floor(index / 3)) * 3 + (index % 3) + 1;
 const familyOf = (tag) => NATURE_TAGS[tag].family;
 const familyInfo = (id) => NATURE_FAMILIES.find((f) => f.id === id);
 const natureExplain = (token) => token.note || NATURE_TAGS[token.tag].why;
@@ -129,7 +131,7 @@ function natureEclair() {
     intro: `
       <div class="play card result">
         <div class="big">⚡</div><h2>Nature éclair · 60 secondes</h2>
-        <p class="muted">Un mot est surligné dans une phrase : donne sa classe.<span class="keyboard-only"> Clavier : touches <kbd>1</kbd> à <kbd>9</kbd>.</span> Record : ${state.best.natures || 0}.</p>
+        <p class="muted">Un mot est surligné dans une phrase : donne sa classe.<span class="keyboard-only"> Clavier : pavé numérique, les touches suivent la position des boutons (<kbd>7</kbd> en haut à gauche, <kbd>3</kbd> en bas à droite).</span> Record : ${state.best.natures || 0}.</p>
         <button class="btn" id="start">C’est parti !</button>
       </div>`,
     onStart() {
@@ -138,7 +140,7 @@ function natureEclair() {
           <div class="play-top"><a class="icon-btn" href="#/natures" title="Quitter">✕</a><div style="flex:1"></div><div class="combo">✅ <span id="score">0</span></div><div class="timer" id="timer">⏱ 60</div></div>
           <div class="card nature-card"><div class="nature-sentence" id="sentence"></div></div>
           <div class="family-grid">
-            ${NATURE_FAMILIES.map((f, i) => `<button class="choice family-btn" data-family="${f.id}"><span class="key">${i + 1}</span>${f.label}</button>`).join('')}
+            ${NATURE_FAMILIES.map((f, i) => `<button class="choice family-btn" data-family="${f.id}"><span class="key">${numpadKey(i)}</span>${f.label}</button>`).join('')}
           </div>
           <p class="nature-hint" id="hint">&nbsp;</p>
         </div>`;
@@ -169,7 +171,7 @@ function natureEclair() {
         }
       };
       app.querySelectorAll('.family-btn').forEach((b) => b.addEventListener('click', () => answer(b.dataset.family)));
-      onKey = (event) => { if (/^[1-9]$/.test(event.key)) answer(NATURE_FAMILIES[Number(event.key) - 1].id); };
+      onKey = (event) => { if (/^[1-9]$/.test(event.key)) answer(NATURE_FAMILIES.find((_, i) => numpadKey(i) === Number(event.key)).id); };
       document.addEventListener('keydown', onKey);
       show();
     },
