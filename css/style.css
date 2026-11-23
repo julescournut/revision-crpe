@@ -437,3 +437,24 @@ code { font-size: .9em; padding: 1px 6px; border-radius: 6px; background: var(--
   .mastery-row { grid-template-columns: 8.5em 1fr 5.5em; gap: 8px; font-size: .9rem; }
 }
 .nature-lines strong { display: inline; }
+
+/* Jeu « Fonctions dans la phrase » */
+.fn-verb { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.fn-grid .choice:nth-child(10) { grid-column: span 2; }
+.fn-rows { display: grid; gap: 8px; margin-bottom: 8px; }
+.fn-row {
+  font: inherit; color: inherit; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 14px; border-radius: 12px; border: 2px solid var(--border); background: var(--surface); cursor: pointer;
+}
+.fn-row.nested { margin-left: 28px; }
+.fn-row small { font-weight: 700; color: var(--muted); white-space: nowrap; }
+.fn-row.active { border-color: var(--primary); background: var(--primary-soft); }
+.fn-row.tagged small { color: var(--primary); }
+.fn-row.found { border-color: var(--success); background: var(--success-soft); }
+.fn-row.half { border-color: var(--xp); background: var(--xp-soft); }
+.fn-row.missed { border-color: var(--danger); background: var(--danger-soft); }
+.fn-row:disabled, .fn-row.found, .fn-row.half, .fn-row.missed { cursor: default; }
+@media (max-width: 860px) {
+  .fn-row.nested { margin-left: 14px; }
+  .fn-row { padding: 8px 10px; font-size: .92rem; }
+}

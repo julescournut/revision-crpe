@@ -80,9 +80,10 @@ const defaultState = () => ({
   wrong: [],
   cards: {},
   cardsReviewed: 0,
-  best: { calc: 0, tf: 0, natures: 0 },
+  best: { calc: 0, tf: 0, natures: 0, fonctions: 0 },
   chaptersRead: [],
   natures: {},
+  fonctions: {},
 });
 
 let state = load();
@@ -133,12 +134,14 @@ function mergeStates(a, b) {
   merged.chaptersRead = union(a.chaptersRead, b.chaptersRead);
   merged.wrong = union(a.wrong, b.wrong);
   merged.cardsReviewed = Math.max(a.cardsReviewed, b.cardsReviewed);
-  merged.best = { calc: Math.max(a.best.calc || 0, b.best.calc || 0), tf: Math.max(a.best.tf || 0, b.best.tf || 0), natures: Math.max(a.best.natures || 0, b.best.natures || 0) };
-  merged.natures = {};
-  union(Object.keys(a.natures || {}), Object.keys(b.natures || {})).forEach((k) => {
-    const x = (a.natures || {})[k] || { ok: 0, total: 0 };
-    const y = (b.natures || {})[k] || { ok: 0, total: 0 };
-    merged.natures[k] = x.total >= y.total ? x : y;
+  merged.best = { calc: Math.max(a.best.calc || 0, b.best.calc || 0), tf: Math.max(a.best.tf || 0, b.best.tf || 0), natures: Math.max(a.best.natures || 0, b.best.natures || 0), fonctions: Math.max(a.best.fonctions || 0, b.best.fonctions || 0) };
+  ['natures', 'fonctions'].forEach((game) => {
+    merged[game] = {};
+    union(Object.keys(a[game] || {}), Object.keys(b[game] || {})).forEach((k) => {
+      const x = (a[game] || {})[k] || { ok: 0, total: 0 };
+      const y = (b[game] || {})[k] || { ok: 0, total: 0 };
+      merged[game][k] = x.total >= y.total ? x : y;
+    });
   });
   merged.subjects = {};
   union(Object.keys(a.subjects), Object.keys(b.subjects)).forEach((k) => {
@@ -413,6 +416,7 @@ const routes = {
   calcul: renderCalc,
   vraifaux: renderTrueFalse,
   natures: renderNatures,
+  fonctions: renderFonctions,
   cours: renderCourses,
   niveaux: renderLevels,
   'quel-niveau': renderLevelQuiz,
@@ -427,7 +431,7 @@ function router() {
   (routes[route] || renderHome)(param, sub);
   document.querySelectorAll('#nav a').forEach((link) => {
     const target = link.dataset.route;
-    const section = route === 'test' ? 'cours' : ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau', 'natures'].includes(route) ? 'jeux' : route;
+    const section = route === 'test' ? 'cours' : ['quiz', 'erreurs', 'cartes', 'calcul', 'vraifaux', 'quel-niveau', 'natures', 'fonctions'].includes(route) ? 'jeux' : route;
     link.classList.toggle('active', target === (section || ''));
   });
   window.scrollTo(0, 0);
@@ -518,6 +522,10 @@ function renderGames() {
       <a class="card link-card" href="#/natures">
         <span class="emoji">🔤</span><h3>Natures des mots</h3>
         <p class="muted">Classes grammaticales en trois modes : éclair 60 s, chasse aux mots, analyse complète d’une phrase. Avec ta maîtrise par classe.</p>
+      </a>
+      <a class="card link-card" href="#/fonctions">
+        <span class="emoji">🧱</span><h3>Fonctions dans la phrase</h3>
+        <p class="muted">Sujet, COD, COI, attribut, complément de phrase… en trois modes : éclair 60 s, délimitation des groupes, analyse complète.</p>
       </a>
       <a class="card link-card" href="#/vraifaux">
         <span class="emoji">⚡</span><h3>Vrai ou faux éclair · 45 s</h3>

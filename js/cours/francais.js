@@ -196,6 +196,11 @@ COURS.francais = [
       'Au concours, justifie chaque fonction par la manipulation utilisée (pronominalisation, suppression, déplacement) : c’est ce qui prouve ta démarche.',
       'En classe, fais manipuler des étiquettes de groupes de mots que les élèves déplacent, suppriment ou remplacent par un pronom.',
     ],
+    practice: {
+      title: 'S’entraîner sur les fonctions',
+      text: 'Trois jeux sur des phrases découpées en groupes, qui reviennent plus souvent sur les fonctions où tu te trompes. Les tests de ce chapitre piochent aussi dans ces phrases : chaque test est différent.',
+      links: [['⚡ Fonction éclair', '#/fonctions/eclair'], ['✂️ Délimite le groupe', '#/fonctions/chasse'], ['🧩 Analyse complète', '#/fonctions/analyse'], ['Ma maîtrise et le mémo', '#/fonctions']],
+    },
     quiz: [
       { q: 'Dans « Le chat dort sur le canapé », quelle est la fonction de « le chat » ?', c: ['Sujet', 'COD', 'Attribut du sujet', 'Apposition'], a: 0, e: 'On l’encadre par « c’est… qui » : c’est le chat qui dort. C’est le sujet du verbe.' },
       { q: 'Dans « Elle mange une pomme », quelle est la fonction de « une pomme » ?', c: ['COD', 'COI', 'Attribut du sujet', 'Complément de phrase'], a: 0, e: 'Il se construit sans préposition et se pronominalise par « la » : Elle la mange.' },
